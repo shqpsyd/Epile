@@ -130,6 +130,10 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
                         uint32_t msg3_size,
                         ra_samp_response_header_t **pp_att_result_msg);
 
+
+//just assume the message type (user_aes_gcm_data_t *) is known
+int sp_normal_proc_msg5_req(const user_aes_gcm_data_t *p_msg5, normal_message_response_header_t ** pp_msg6);
+
 int sp_ra_free_msg2(
     sample_ra_msg2_t *p_msg2);
 

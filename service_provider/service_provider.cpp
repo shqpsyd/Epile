@@ -732,8 +732,33 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
         *pp_att_result_msg = p_att_result_msg_full;
     }
     return ret;
-}
 
+
+}
+//after receiving msg5 we need to decrypt it, and there is no method to decrypt it in ./sdk/sample_libcrypto/sample_libcrypto.cpp,
+//we need to implement it, by now I just use another so provided by https://github.com/baidu/rust-sgx-sdk
+int sp_normal_proc_msg5_req(const user_aes_gcm_data_t *p_msg5,normal_message_response_header_t ** pp_msg6){
+    int ret = 0;
+    int* function_no = (int*)malloc(p_msg5->payload_size);
+    uint8_t aes_gcm_iv[SAMPLE_SP_IV_SIZE] = {0};
+    ret = sample_rijndael128GCM_decrypt(&g_sp_db.sk_key, 
+                                    p_msg5->payload,
+                                    p_msg5->payload_size,
+                                    (uint8_t*)function_no,
+                                    &aes_gcm_iv[0],
+                                    SAMPLE_SP_IV_SIZE,
+                                    NULL,
+                                    0,
+                                    (sample_aes_gcm_128bit_tag_t *)p_msg5->payload_tag
+                                    );
+    if(ret) {
+        printf("fail to decrypt in server");
+    }else{
+        printf("success to decrypt in server");
+        printf("function_no is %d", *function_no);
+    }    
+    return ret;
+}
 
 
 

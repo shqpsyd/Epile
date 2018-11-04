@@ -138,6 +138,7 @@ int normal_message_send_receive(const char *server_url,
     {
         case TYPE_SECRET_REMOTE:
             printf("recive normal message %d",p_req->type);
+            ret = sp_normal_proc_msg5_req(((const user_aes_gcm_data_t *)p_req->body), &p_resp_msg);
             break;
         case TYPE_SECRET_LOCAL:
             break;

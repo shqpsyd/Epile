@@ -57,6 +57,8 @@
 
 #include "service_provider.h"
 
+#include "ecp.h" //just a test to see if provider can decrypt the secret
+
 #ifndef SAFE_FREE
 #define SAFE_FREE(ptr) {if (NULL != (ptr)) {free(ptr); (ptr) = NULL;}}
 #endif
@@ -711,9 +713,10 @@ int main(int argc, char* argv[])
                 goto CLEANUP;               
             }
             normal_message_request_header_t* msg5 = (normal_message_request_header_t*)temp;
+            
 
             fprintf(OUTPUT, "out of sgx type is %d\n", ((user_aes_gcm_data_t *)msg5->body)->payload_size);
-
+            
             normal_message_send_receive("server", msg5,&msg6);
         }
     }
