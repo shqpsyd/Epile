@@ -47,7 +47,7 @@
 
 // Needed to get service provider's information, in your real project, you will
 // need to talk to real server.
-#include "network_ra.h"
+#include "network_ra.h" //#define FUNCTION_NO_LENGTH NORMAL_MESSAGE_REQUEST_SIZE
 
 // Needed to create enclave and do ecall.
 #include "sgx_urts.h"
@@ -68,6 +68,14 @@
 
 
 #define ENCLAVE_PATH "isv_enclave.signed.so"
+//to test things happen in enclave
+void ocall_print_string(const char *str)
+{
+    /* Proxy/Bridge will check the length and null-terminate 
+     * the input string to prevent buffer overflow. */
+     
+    printf("%s", str);
+}
 
 uint8_t* msg1_samples[] = { msg1_sample1, msg1_sample2 };
 uint8_t* msg2_samples[] = { msg2_sample1, msg2_sample2 };
@@ -676,7 +684,41 @@ int main(int argc, char* argv[])
         }
         fprintf(OUTPUT, "\nSecret successfully received from server.");
         fprintf(OUTPUT, "\nRemote attestation success!");
+
+        //exchange normal message after attestation
+        
+        if(attestation_passed) {
+            
+            uint8_t* temp = (uint8_t*)malloc(NORMAL_MESSAGE_REQUEST_SIZE);
+            normal_message_response_header_t* msg6 = NULL;
+            /*char * test = new char[2];
+            test[0] = 'a';
+            test[1] = 'b';
+        
+            msg5 = (normal_message_request_header_t*)
+                      malloc(sizeof(normal_message_request_header_t)
+                             + 2);        
+            msg5->type = TYPE_SECRET_REMOTE;
+            msg5->size = 2;
+            memcpy(msg5->body,test,2);
+            ret  = normal_message_send_receive("server",msg5,&msg6);
+            printf("receive %s", msg6->body);*/            
+            ret = get_secret(enclave_id, &status, context, temp, NORMAL_MESSAGE_REQUEST_SIZE, 1);
+            if((ret != SGX_SUCCESS) || (SGX_SUCCESS != status)) {
+                fprintf(OUTPUT, "\nError, processing request secret "
+                        " failed in [%s]. ret = "
+                        "0x%0x. status = 0x%0x", __FUNCTION__, ret, status);
+                goto CLEANUP;               
+            }
+            normal_message_request_header_t* msg5 = (normal_message_request_header_t*)temp;
+
+            fprintf(OUTPUT, "out of sgx type is %d\n", ((user_aes_gcm_data_t *)msg5->body)->payload_size);
+
+            normal_message_send_receive("server", msg5,&msg6);
+        }
     }
+
+    
 
 CLEANUP:
     // Clean-up

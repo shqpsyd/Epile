@@ -35,7 +35,15 @@
 #include "sgx_tkey_exchange.h"
 #include "sgx_tcrypto.h"
 #include "string.h"
-
+#include "ias_ra.h"
+#include "network_ra.h" //normal_request_header_t
+#include "remote_attestation_result.h" //user_aes_gcm_data_t
+#include "Enclave.h"
+#include <stdarg.h>
+#include <stdio.h>      /* vsnprintf */
+#define SAMPLE_SP_IV_SIZE 12
+#define SAMPLE_MAC_SIZE     16  // Message Authentication Code
+                                // - 16 bytes
 // This is the public EC key of the SP. The corresponding private EC key is
 // used by the SP to sign data used in the remote attestation SIGMA protocol
 // to sign channel binding data in MSG2. A successful verification of the
@@ -62,6 +70,16 @@ static const sgx_ec256_public_t g_sp_pub_key = {
     }
 
 };
+//use printf for test
+void printf(const char *fmt, ...)
+{
+    char buf[BUFSIZ] = {'\0'};
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, BUFSIZ, fmt, ap);
+    va_end(ap);
+    ocall_print_string(buf);
+}
 
 // Used to store the secret passed by the SP in the sample code. The
 // size is forced to be 8 bytes. Expected value is
@@ -393,5 +411,55 @@ sgx_status_t put_secret_data(
         // perform remote attestation until the secret goes stale. Once the
         // enclave is created again, the secret can be unsealed.
     } while(0);
+    
+    return ret;
+}
+//let's assume sizeof function_no is 4 by now
+//To get secret from server
+
+sgx_status_t get_secret(sgx_ra_context_t context,
+                                        uint8_t* msg,
+                                        uint32_t size,
+                                        int function_no) 
+{
+    user_aes_gcm_data_t * cipher = NULL;
+    //uint8_t type;    uint32_t size;    uint8_t body[] -> cipher_t;
+    sgx_status_t ret = SGX_SUCCESS;
+    sgx_ec_key_128bit_t sk_key;
+    do{
+        normal_message_request_header_t* msg5 = (normal_message_request_header_t*)msg;    
+        
+        memset(msg5,0, size); 
+        ret = sgx_ra_get_keys(context, SGX_RA_KEY_SK, &sk_key);
+        if(SGX_SUCCESS != ret)
+        {
+            break;
+            
+        }
+        
+        msg5->type = TYPE_SECRET_REMOTE;
+        msg5->size = sizeof(normal_message_request_header_t);
+        
+        cipher = (user_aes_gcm_data_t *)msg5->body;
+        cipher->payload_size = FUNCTION_NO_LENGTH;
+        
+        //secret function_no with sk
+        uint8_t aes_gcm_iv[SAMPLE_SP_IV_SIZE] = {0};
+        ret = sgx_rijndael128GCM_encrypt(&sk_key,
+                                        (uint8_t*)&function_no,
+                                        cipher->payload_size,
+                                        cipher->payload,
+                                        aes_gcm_iv,
+                                        SAMPLE_SP_IV_SIZE,
+                                        NULL,
+                                        0,
+                                        &cipher->payload_tag
+                                        );
+        if(ret !=0 ) {
+            printf("ret for encrypt is %d", ret);
+        }      
+    
+    }while(0);
+     
     return ret;
 }

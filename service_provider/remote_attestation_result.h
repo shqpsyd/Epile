@@ -96,6 +96,13 @@ typedef struct sample_ra_att_result_msg_t {
     sp_aes_gcm_data_t           secret;
 } sample_ra_att_result_msg_t;
 
+typedef struct _user_aes_gcm_data_t{
+    uint32_t payload_size;
+    uint8_t  reserved[12]; 
+    uint8_t  payload_tag[SAMPLE_SP_TAG_SIZE];
+    uint8_t  payload[];
+} user_aes_gcm_data_t;
+
 #pragma pack(pop)
 
 #ifdef  __cplusplus

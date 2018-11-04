@@ -33,12 +33,13 @@
 
 #ifndef _NETWORK_RA_H
 #define _NETWORK_RA_H
-
-
+#define FUNCTION_NO_LENGTH 4
+#define NORMAL_MESSAGE_REQUEST_SIZE sizeof(normal_message_request_header_t) + sizeof(user_aes_gcm_data_t) + FUNCTION_NO_LENGTH
 /* Enum for all possible message types between the ISV app and
  * the ISV SP. Requests and responses in the remote attestation
  * sample.
  */
+
 typedef enum _ra_msg_type_t
 {
      TYPE_RA_MSG0,
@@ -61,6 +62,11 @@ typedef enum _ias_msg_type_t
      TYPE_IAS_ATT_RESULT,
 }ias_msg_type_t;
 
+typedef enum _normal_message_type_t 
+{
+    TYPE_SECRET_REMOTE,
+    TYPE_SECRET_LOCAL,
+}normal_message_type_t;
 #pragma pack(1)
 typedef struct _ra_samp_request_header_t{
     uint8_t  type;     /* set to one of ra_msg_type_t*/
@@ -68,6 +74,8 @@ typedef struct _ra_samp_request_header_t{
     uint8_t  align[3];
     uint8_t body[];
 }ra_samp_request_header_t;
+
+
 
 typedef struct _ra_samp_response_header_t{
     uint8_t  type;      /* set to one of ra_msg_type_t*/
@@ -77,6 +85,17 @@ typedef struct _ra_samp_response_header_t{
     uint8_t  body[];
 }ra_samp_response_header_t;
 
+typedef struct _normal_message_request_header_t {
+    uint8_t type;
+    uint32_t size;
+    uint8_t body[];
+}normal_message_request_header_t;
+
+typedef struct _normal_message_response_header_t {
+    uint8_t type;
+    uint32_t size;
+    uint8_t body[];
+}normal_message_response_header_t;
 #pragma pack()
 
 #ifdef  __cplusplus
@@ -86,6 +105,9 @@ extern "C" {
 int ra_network_send_receive(const char *server_url,
                             const ra_samp_request_header_t *req,
                             ra_samp_response_header_t **p_resp);
+int normal_message_send_receive(const char *server_url,
+    const normal_message_request_header_t *p_req,
+    normal_message_response_header_t **p_resp);
 void ra_free_network_response_buffer(ra_samp_response_header_t *resp);
 
 #ifdef  __cplusplus

@@ -37,6 +37,8 @@
 #include "network_ra.h"
 #include "service_provider.h"
 
+#include <string.h>//memcpy
+
 
 // Used to send requests to the service provider sample.  It
 // simulates network communication between the ISV app and the
@@ -116,6 +118,35 @@ int ra_network_send_receive(const char *server_url,
         break;
     }
 
+    return ret;
+}
+
+int normal_message_send_receive(const char *server_url,
+    const normal_message_request_header_t *p_req,
+    normal_message_response_header_t **p_resp){
+    int ret = 0;
+    normal_message_response_header_t* p_resp_msg;
+
+    if((NULL == server_url) ||
+        (NULL == p_req) ||
+        (NULL == p_resp))
+    {
+        return -1;
+    }
+
+    switch(p_req->type)
+    {
+        case TYPE_SECRET_REMOTE:
+            printf("recive normal message %d",p_req->type);
+            break;
+        case TYPE_SECRET_LOCAL:
+            break;
+        default:
+            ret = -1;
+            fprintf(stderr, "\nError, unknown ra message type. Type = %d [%s].",
+                p_req->type, __FUNCTION__);
+            break;
+    }
     return ret;
 }
 
