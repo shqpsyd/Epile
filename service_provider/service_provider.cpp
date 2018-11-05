@@ -756,7 +756,30 @@ int sp_normal_proc_msg5_req(const user_aes_gcm_data_t *p_msg5,normal_message_res
     }else{
         printf("success to decrypt in server");
         printf("function_no is %d", *function_no);
-    }    
+    }
+    const int secretLength = 5;
+    uint8_t* mysecret = (uint8_t*)malloc(secretLength);
+    memcpy(mysecret,"hello",secretLength);
+    normal_message_response_header_t * msg_ret = (normal_message_response_header_t *)malloc(secretLength + sizeof(normal_message_response_header_t) + sizeof(user_aes_gcm_data_t));
+    user_aes_gcm_data_t * cipher = (user_aes_gcm_data_t *)msg_ret->body;
+    cipher->payload_size = secretLength;
+    memset(aes_gcm_iv, 0, SAMPLE_SP_IV_SIZE);
+                ret = sample_rijndael128GCM_encrypt(&g_sp_db.sk_key,
+                        mysecret,
+                        cipher->payload_size,
+                        cipher->payload,
+                        &aes_gcm_iv[0],
+                        SAMPLE_SP_IV_SIZE,
+                        NULL,
+                        0,
+                        &cipher->payload_tag);
+    if(ret) {
+        printf("fail to encrypt in server");
+    }else {
+        printf("success to encrypt in server");
+        printf("cipher is %s", cipher->payload);  
+    }
+    *pp_msg6 = msg_ret;
     return ret;
 }
 

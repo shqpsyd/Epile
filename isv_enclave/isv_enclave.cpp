@@ -417,7 +417,7 @@ sgx_status_t put_secret_data(
 //let's assume sizeof function_no is 4 by now
 //To get secret from server
 
-sgx_status_t get_secret(sgx_ra_context_t context,
+sgx_status_t require_secret(sgx_ra_context_t context,
                                         uint8_t* msg,
                                         uint32_t size,
                                         int function_no) 
@@ -458,8 +458,54 @@ sgx_status_t get_secret(sgx_ra_context_t context,
         if(ret !=0 ) {
             printf("ret for encrypt is %d", ret);
         }      
-    
+
     }while(0);
      
     return ret;
+}
+
+sgx_status_t get_secret(sgx_ra_context_t context,
+                                        uint8_t* msg6,
+                                        uint32_t size)                                        
+{
+    sgx_status_t ret = SGX_SUCCESS;
+    sgx_ec_key_128bit_t sk_key;
+    user_aes_gcm_data_t * msg = (user_aes_gcm_data_t *)msg6;
+
+    do {
+        ret = sgx_ra_get_keys(context, SGX_RA_KEY_SK, &sk_key);
+        if(SGX_SUCCESS != ret)
+        {
+            break;
+        }
+        uint8_t * mysecret = (uint8_t *) malloc(size);
+        memset(mysecret,0,size);
+        uint8_t aes_gcm_iv[12] = {0};
+        ret = sgx_rijndael128GCM_decrypt(&sk_key,
+                                         msg->payload,
+                                         msg->payload_size,
+                                         mysecret,
+                                         &aes_gcm_iv[0],
+                                         12,
+                                         NULL,
+                                         0,
+                                         (const sgx_aes_gcm_128bit_tag_t *)msg->payload_tag
+                                         );
+
+        
+
+        if(ret == 0)
+        {
+            printf("mysecret is %s in enclave",mysecret);
+        } else {
+            printf("fail to decrept mysecret in enclave");
+        }
+
+        // Once the server has the shared secret, it should be sealed to
+        // persistent storage for future use. This will prevents having to
+        // perform remote attestation until the secret goes stale. Once the
+        // enclave is created again, the secret can be unsealed.
+    } while(0);
+    
+    return ret;                          
 }

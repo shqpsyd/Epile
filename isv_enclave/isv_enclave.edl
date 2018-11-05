@@ -49,10 +49,16 @@ enclave {
                                             [in,size=secret_size] uint8_t* p_secret,
                                             uint32_t secret_size,
                                             [in,count=16] uint8_t* gcm_mac);
-        public sgx_status_t get_secret(sgx_ra_context_t context,
+
+        public sgx_status_t require_secret(sgx_ra_context_t context,
                                         [out,size=msg5_size] uint8_t* msg5,
                                         uint32_t msg5_size,
                                         int function_no);
+                                        
+        public sgx_status_t get_secret(sgx_ra_context_t context,
+                                        [in,size = msg6_size] uint8_t* msg6, 
+                                        uint32_t msg6_size);
+
     };
     untrusted {
         void ocall_print_string([in, string] const char *str);

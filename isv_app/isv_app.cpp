@@ -705,7 +705,7 @@ int main(int argc, char* argv[])
             memcpy(msg5->body,test,2);
             ret  = normal_message_send_receive("server",msg5,&msg6);
             printf("receive %s", msg6->body);*/            
-            ret = get_secret(enclave_id, &status, context, temp, NORMAL_MESSAGE_REQUEST_SIZE, 1);
+            ret = require_secret(enclave_id, &status, context, temp, NORMAL_MESSAGE_REQUEST_SIZE, 1);
             if((ret != SGX_SUCCESS) || (SGX_SUCCESS != status)) {
                 fprintf(OUTPUT, "\nError, processing request secret "
                         " failed in [%s]. ret = "
@@ -713,11 +713,19 @@ int main(int argc, char* argv[])
                 goto CLEANUP;               
             }
             normal_message_request_header_t* msg5 = (normal_message_request_header_t*)temp;
-            
-
-            fprintf(OUTPUT, "out of sgx type is %d\n", ((user_aes_gcm_data_t *)msg5->body)->payload_size);
-            
+            fprintf(OUTPUT, "out of sgx type is %d\n", ((user_aes_gcm_data_t *)msg5->body)->payload_size);           
             normal_message_send_receive("server", msg5,&msg6);
+            user_aes_gcm_data_t* encrypt_data = (user_aes_gcm_data_t*)msg6->body;
+            uint32_t size = sizeof(user_aes_gcm_data_t) + encrypt_data->payload_size;
+            printf("\nencrypt_data->size = %d",encrypt_data->payload_size);
+            
+            ret = get_secret(enclave_id, &status, context,(uint8_t*)msg6->body, size);
+            if(ret != SGX_SUCCESS) {
+                fprintf(OUTPUT, "\nError, processing received secret "
+                        " failed in [%s]. ret = "
+                        "0x%0x. status = 0x%0x", __FUNCTION__, ret, status);
+                goto CLEANUP;
+            }
         }
     }
 
