@@ -41,6 +41,10 @@
 #include "Enclave.h"
 #include <stdarg.h>
 #include <stdio.h>      /* vsnprintf */
+#include <openssl/conf.h>
+#include <openssl/evp.h>
+#include <openssl/err.h>
+#include <string.h>
 #define SAMPLE_SP_IV_SIZE 12
 #define SAMPLE_MAC_SIZE     16  // Message Authentication Code
                                 // - 16 bytes
@@ -70,6 +74,7 @@ static const sgx_ec256_public_t g_sp_pub_key = {
     }
 
 };
+uint8_t * aeskey = NULL;
 //use printf for test
 void printf(const char *fmt, ...)
 {
@@ -478,13 +483,13 @@ sgx_status_t get_secret(sgx_ra_context_t context,
         {
             break;
         }
-        uint8_t * mysecret = (uint8_t *) malloc(size);
-        memset(mysecret,0,size);
+        aeskey = (uint8_t *) malloc(size);
+        memset(aeskey,0,size);
         uint8_t aes_gcm_iv[12] = {0};
         ret = sgx_rijndael128GCM_decrypt(&sk_key,
                                          msg->payload,
                                          msg->payload_size,
-                                         mysecret,
+                                         aeskey,
                                          &aes_gcm_iv[0],
                                          12,
                                          NULL,
@@ -496,16 +501,127 @@ sgx_status_t get_secret(sgx_ra_context_t context,
 
         if(ret == 0)
         {
-            printf("mysecret is %s in enclave",mysecret);
+            printf("aeskey is %s in enclave",aeskey);
         } else {
-            printf("fail to decrept mysecret in enclave");
+            printf("fail to decrept aeskey in enclave");
         }
 
         // Once the server has the shared secret, it should be sealed to
         // persistent storage for future use. This will prevents having to
         // perform remote attestation until the secret goes stale. Once the
         // enclave is created again, the secret can be unsealed.
+
+
     } while(0);
     
     return ret;                          
 }
+
+
+
+int encrypt_aes(unsigned char *plaintext, int plaintext_len, unsigned char *ciphertext, int ciphersize)
+{
+  if(aeskey == NULL)
+    return -1;  
+  int ret = 0;
+  EVP_CIPHER_CTX *ctx;
+  
+  
+  memset(ciphertext, 0, ciphersize);
+
+  int len;
+
+  int ciphertext_len;
+
+  /* Create and initialise the context */
+  if(!(ctx = EVP_CIPHER_CTX_new())) {
+      ret = 1;
+      return ret;
+  }
+
+  /* Initialise the encryption operation. IMPORTANT - ensure you use a key
+   * In this example we are using 256 bit AES (i.e. a 256 bit key). 
+  */
+  if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_ecb(), NULL, aeskey, NULL))
+    {
+        ret = 2;
+        return ret;
+    }
+
+  /* Provide the message to be encrypted, and obtain the encrypted output.
+   * EVP_EncryptUpdate can be called multiple times if necessary
+   */
+  if(1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
+    {
+        ret = 3;
+        return ret;
+    }
+  ciphertext_len = len;
+
+  /* Finalise the encryption. Further ciphertext bytes may be written at
+   * this stage.
+   */
+  if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
+    {
+        ret = 4;
+        return ret;
+    }
+  ciphertext_len += len;
+
+  /* Clean up */
+  EVP_CIPHER_CTX_free(ctx);
+
+  return ciphertext_len;
+}
+
+int decrypt_aes(unsigned char *ciphertext, int ciphertext_len, unsigned char *plaintext, int plainsize)
+{
+  if(aeskey == NULL)
+    return -1;
+  int ret = 0;
+  EVP_CIPHER_CTX *ctx;
+
+  int len;
+
+  int plaintext_len;
+
+  /* Create and initialise the context */
+  if(!(ctx = EVP_CIPHER_CTX_new())) {
+      ret = 1;
+      return ret;
+  }
+
+  /* Initialise the decryption operation. IMPORTANT - ensure you use a key
+   * In this example we are using 256 bit AES (i.e. a 256 bit key). The
+  */
+  if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_ecb(), NULL, aeskey, NULL)) {
+      ret = 2;
+      return ret;
+  };
+
+  /* Provide the message to be decrypted, and obtain the plaintext output.
+   * EVP_DecryptUpdate can be called multiple times if necessary
+   */
+  if(1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
+      ret = 3;
+      return ret;
+  }
+  plaintext_len = len;
+
+  /* Finalise the decryption. Further plaintext bytes may be written at
+   * this stage.
+   */
+  if(1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len)) {
+      ret = 4;
+      return ret;
+  };
+  plaintext_len += len;
+
+  /* Clean up */
+  EVP_CIPHER_CTX_free(ctx);
+
+  return plaintext_len;
+}
+
+
+

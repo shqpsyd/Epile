@@ -59,6 +59,12 @@ enclave {
                                         [in,size = msg6_size] uint8_t* msg6, 
                                         uint32_t msg6_size);
 
+        public int encrypt_aes([in, size = plaintext_len]unsigned char *plaintext, int plaintext_len, 
+                                [out, size = ciphersize]unsigned char *ciphertext, int ciphersize);
+                                
+        public int decrypt_aes([in, size = ciphertext_len]unsigned char *ciphertext, int ciphertext_len, 
+                                [out, size = plainsize]unsigned char *plaintext, int plainsize);
+
     };
     untrusted {
         void ocall_print_string([in, string] const char *str);

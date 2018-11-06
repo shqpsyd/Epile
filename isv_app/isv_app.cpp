@@ -726,6 +726,35 @@ int main(int argc, char* argv[])
                         "0x%0x. status = 0x%0x", __FUNCTION__, ret, status);
                 goto CLEANUP;
             }
+            //to encrypt a plaintext
+            uint8_t* plaintext = (uint8_t*)"this is my secret";
+            int plaintext_len = strlen((char*)plaintext);
+            int ciphersize = ((plaintext_len / 16) + 1) * 16;
+            uint8_t* ciphertext = (uint8_t*)malloc(ciphersize);
+            int cipherLen = 0;
+            ret = encrypt_aes(enclave_id, &cipherLen,plaintext, plaintext_len, ciphertext, ciphersize);
+            
+            if(ret != 0) {
+                fprintf(OUTPUT, "\nError, generate ciphertext"
+                        " failed in [%s]. ret = "
+                        "0x%0x.", __FUNCTION__, ret);
+                goto CLEANUP;
+            }
+            printf("\ncipherlen is %d ciphertext is %s\n", cipherLen, ciphertext);
+
+            //to decrypt a ciphertext
+            plaintext = (uint8_t*)malloc(cipherLen);
+            memset(plaintext,0,cipherLen);
+            int plainLen = 0;            
+            ret = decrypt_aes(enclave_id, &plainLen, ciphertext, cipherLen, plaintext, cipherLen);
+            if(ret != 0) {
+                fprintf(OUTPUT, "\nError, generate plaintext"
+                        " failed in [%s]. ret = "
+                        "0x%0x.", __FUNCTION__, ret);
+                goto CLEANUP;
+            }
+            printf("\nplianlen is %d plaintext is %s\n", plainLen, plaintext);
+            //BIO_dump_fp (stdout, (const char *)palintext, plainLen);                       
         }
     }
 

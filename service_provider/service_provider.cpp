@@ -757,9 +757,10 @@ int sp_normal_proc_msg5_req(const user_aes_gcm_data_t *p_msg5,normal_message_res
         printf("success to decrypt in server");
         printf("function_no is %d", *function_no);
     }
-    const int secretLength = 5;
+    uint8_t* aeskey = (uint8_t*)"01234567890123456789012345678901";
+    const int secretLength = strlen((char*)aeskey);
     uint8_t* mysecret = (uint8_t*)malloc(secretLength);
-    memcpy(mysecret,"hello",secretLength);
+    memcpy(mysecret,aeskey,secretLength);
     normal_message_response_header_t * msg_ret = (normal_message_response_header_t *)malloc(secretLength + sizeof(normal_message_response_header_t) + sizeof(user_aes_gcm_data_t));
     user_aes_gcm_data_t * cipher = (user_aes_gcm_data_t *)msg_ret->body;
     cipher->payload_size = secretLength;
