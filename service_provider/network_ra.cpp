@@ -136,13 +136,17 @@ int normal_message_send_receive(const char *server_url,
 
     switch(p_req->type)
     {
-        case TYPE_SECRET_REMOTE:
+        case TYPE_SECRET_LOCAL:
             printf("recive normal message %d",p_req->type);
             ret = sp_normal_proc_msg5_req(((const user_aes_gcm_data_t *)p_req->body), &p_resp_msg);
             *p_resp = p_resp_msg;
             break;
-        case TYPE_SECRET_LOCAL:
+        case TYPE_SECRET_REMOTE:
             break;
+        case TYPE_PROCESS:
+            ret = sp_process_data_req((const user_process_data_t *)p_req->body, &p_resp_msg);
+            *p_resp = p_resp_msg;
+            break;           
         default:
             ret = -1;
             fprintf(stderr, "\nError, unknown ra message type. Type = %d [%s].",

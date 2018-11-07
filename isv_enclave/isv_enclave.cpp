@@ -442,7 +442,7 @@ sgx_status_t require_secret(sgx_ra_context_t context,
             
         }
         
-        msg5->type = TYPE_SECRET_REMOTE;
+        msg5->type = TYPE_SECRET_LOCAL;
         msg5->size = sizeof(normal_message_request_header_t);
         
         cipher = (user_aes_gcm_data_t *)msg5->body;

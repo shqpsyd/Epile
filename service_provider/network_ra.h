@@ -64,8 +64,9 @@ typedef enum _ias_msg_type_t
 
 typedef enum _normal_message_type_t 
 {
-    TYPE_SECRET_REMOTE,
     TYPE_SECRET_LOCAL,
+    TYPE_SECRET_REMOTE, 
+    TYPE_PROCESS,   
 }normal_message_type_t;
 #pragma pack(1)
 typedef struct _ra_samp_request_header_t{

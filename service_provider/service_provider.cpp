@@ -784,5 +784,17 @@ int sp_normal_proc_msg5_req(const user_aes_gcm_data_t *p_msg5,normal_message_res
     return ret;
 }
 
+int sp_process_data_req(const user_process_data_t * p_req, normal_message_response_header_t ** pp_resp) {
+    int ret = 0;
+    uint8_t* result = (uint8_t*)"process success";
+    normal_message_response_header_t *msg_ret = (normal_message_response_header_t *)malloc(sizeof(normal_message_response_header_t) + strlen((char*)result));
+    user_process_data_t* upd = (user_process_data_t*)(p_req->payload);
+    msg_ret->type = TYPE_PROCESS;
+    msg_ret->size = sizeof(result);
+    uint8_t* temp = msg_ret->body;
+    memcpy(temp,result,strlen((char*)result));
+    *pp_resp = msg_ret;
+    return ret;
+}
 
 

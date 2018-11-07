@@ -103,6 +103,12 @@ typedef struct _user_aes_gcm_data_t{
     uint8_t  payload[];
 } user_aes_gcm_data_t;
 
+typedef struct _user_process_data_t {
+    uint32_t payload_size;
+    uint8_t  reserved[12];
+    uint8_t  payload[];
+} user_process_data_t;
+
 #pragma pack(pop)
 
 #ifdef  __cplusplus

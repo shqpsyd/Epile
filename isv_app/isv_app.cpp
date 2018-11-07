@@ -57,6 +57,8 @@
 
 #include "service_provider.h"
 
+#include "sgx_capable.h"
+
 #include "ecp.h" //just a test to see if provider can decrypt the secret
 
 #ifndef SAFE_FREE
@@ -84,6 +86,8 @@ uint8_t* msg2_samples[] = { msg2_sample1, msg2_sample2 };
 uint8_t* msg3_samples[] = { msg3_sample1, msg3_sample2 };
 uint8_t* attestation_msg_samples[] =
     { attestation_msg_sample1, attestation_msg_sample2};
+uint8_t* plaintext = (uint8_t*)"this is my secret";
+uint32_t plaintext_len = (uint32_t)strlen((char*)plaintext);
 
 // Some utility functions to output some of the data structures passed between
 // the ISV app and the remote attestation service provider.
@@ -686,25 +690,17 @@ int main(int argc, char* argv[])
         }
         fprintf(OUTPUT, "\nSecret successfully received from server.");
         fprintf(OUTPUT, "\nRemote attestation success!");
-
-        //exchange normal message after attestation
         
-        if(attestation_passed) {
+        //exchange normal message after attestation to get 
+        int sgxable = 0;
+        sgx_is_capable(&sgxable);
+        printf("sgx is capable = %d\n",sgxable);
+        sgxable = 0;
+        normal_message_request_header_t* msg5 = NULL;
+        normal_message_response_header_t* msg6 = NULL;
+        if(sgxable) {
             
-            uint8_t* temp = (uint8_t*)malloc(NORMAL_MESSAGE_REQUEST_SIZE);
-            normal_message_response_header_t* msg6 = NULL;
-            /*char * test = new char[2];
-            test[0] = 'a';
-            test[1] = 'b';
-        
-            msg5 = (normal_message_request_header_t*)
-                      malloc(sizeof(normal_message_request_header_t)
-                             + 2);        
-            msg5->type = TYPE_SECRET_REMOTE;
-            msg5->size = 2;
-            memcpy(msg5->body,test,2);
-            ret  = normal_message_send_receive("server",msg5,&msg6);
-            printf("receive %s", msg6->body);*/            
+            uint8_t* temp = (uint8_t*)malloc(NORMAL_MESSAGE_REQUEST_SIZE);           
             ret = require_secret(enclave_id, &status, context, temp, NORMAL_MESSAGE_REQUEST_SIZE, 1);
             if((ret != SGX_SUCCESS) || (SGX_SUCCESS != status)) {
                 fprintf(OUTPUT, "\nError, processing request secret "
@@ -712,7 +708,7 @@ int main(int argc, char* argv[])
                         "0x%0x. status = 0x%0x", __FUNCTION__, ret, status);
                 goto CLEANUP;               
             }
-            normal_message_request_header_t* msg5 = (normal_message_request_header_t*)temp;
+            msg5 = (normal_message_request_header_t*)temp;
             fprintf(OUTPUT, "out of sgx type is %d\n", ((user_aes_gcm_data_t *)msg5->body)->payload_size);           
             normal_message_send_receive("server", msg5,&msg6);
             user_aes_gcm_data_t* encrypt_data = (user_aes_gcm_data_t*)msg6->body;
@@ -727,8 +723,8 @@ int main(int argc, char* argv[])
                 goto CLEANUP;
             }
             //to encrypt a plaintext
-            uint8_t* plaintext = (uint8_t*)"this is my secret";
-            int plaintext_len = strlen((char*)plaintext);
+            
+            
             int ciphersize = ((plaintext_len / 16) + 1) * 16;
             uint8_t* ciphertext = (uint8_t*)malloc(ciphersize);
             int cipherLen = 0;
@@ -753,8 +749,20 @@ int main(int argc, char* argv[])
                         "0x%0x.", __FUNCTION__, ret);
                 goto CLEANUP;
             }
+            plaintext[plainLen] = '\0';
             printf("\nplianlen is %d plaintext is %s\n", plainLen, plaintext);
-            //BIO_dump_fp (stdout, (const char *)palintext, plainLen);                       
+            //BIO_dump_fp (stdout, (const char *)palintext, plainLen - 1);                       
+        } else {
+            uint8_t* temp = (uint8_t*)malloc(sizeof(normal_message_request_header_t) + sizeof(user_process_data_t) + plaintext_len);
+            msg5 = (normal_message_request_header_t*)temp;
+            msg5->size = sizeof(normal_message_request_header_t);
+            msg5->type = TYPE_PROCESS;
+            user_process_data_t* upd = (user_process_data_t*)msg5->body;
+            memcpy(upd->payload,plaintext,plaintext_len);
+            upd->payload_size = plaintext_len;            
+            normal_message_send_receive("server",msg5, &msg6);
+            printf("\n%s\n",msg6->body);
+            
         }
     }
 

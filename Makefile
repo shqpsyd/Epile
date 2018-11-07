@@ -106,7 +106,7 @@ else
 endif
 
 App_Cpp_Flags := $(App_C_Flags)
-App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -L. -lsgx_ukey_exchange -lpthread -lservice_provider -Wl,-rpath=$(CURDIR)/sample_libcrypto -Wl,-rpath=$(CURDIR) -L$(SGXSSL_UNTRUSTED_LIB_PATH) -lsgx_usgxssl
+App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name)   -L. -lsgx_ukey_exchange -lsgx_capable -lpthread -lservice_provider -Wl,-rpath=$(CURDIR)/sample_libcrypto -Wl,-rpath=$(CURDIR) -L$(SGXSSL_UNTRUSTED_LIB_PATH) -lsgx_usgxssl 
 
 
 ifneq ($(SGX_MODE), HW)
