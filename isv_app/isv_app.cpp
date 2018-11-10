@@ -72,23 +72,8 @@
 
 
 #define ENCLAVE_PATH "isv_enclave.signed.so"
+#define _T(x) x
 //to test things happen in enclave
-void ocall_print_string(const char *str)
-{
-    /* Proxy/Bridge will check the length and null-terminate 
-     * the input string to prevent buffer overflow. */
-     
-    printf("%s", str);
-}
-
-uint8_t* msg1_samples[] = { msg1_sample1, msg1_sample2 };
-uint8_t* msg2_samples[] = { msg2_sample1, msg2_sample2 };
-uint8_t* msg3_samples[] = { msg3_sample1, msg3_sample2 };
-uint8_t* attestation_msg_samples[] =
-    { attestation_msg_sample1, attestation_msg_sample2};
-uint8_t* plaintext = (uint8_t*)"this is my secret";
-uint32_t plaintext_len = (uint32_t)strlen((char*)plaintext);
-
 // Some utility functions to output some of the data structures passed between
 // the ISV app and the remote attestation service provider.
 void PRINT_BYTE_ARRAY(
@@ -176,46 +161,92 @@ void PRINT_ATTESTATION_SERVICE_RESPONSE(
                        "Response of type not supported %d\n", response->type);
     }
 }
+void ocall_print_string(const char *str) {printf("%s", str);} 
 
-// This sample code doesn't have any recovery/retry mechanisms for the remote
-// attestation. Since the enclave can be lost due S3 transitions, apps
-// susceptible to S3 transitions should have logic to restart attestation in
-// these scenarios.
-#define _T(x) x
-int main(int argc, char* argv[])
+class sgx {
+    public:   
+        sgx(uint8_t* plaintext, uint8_t* server, uint8_t* port, 
+        uint8_t* msg1_sample1,uint8_t* msg1_sample2,
+        uint8_t* msg2_sample1,uint8_t* msg2_sample2,
+        uint8_t* msg3_sample1,uint8_t* msg3_sample2,
+        uint8_t* attestation_msg_sample1, uint8_t* attestation_msg_sample2,
+        int verify_index, int argc);
+        void work_remote(int function);
+        void work_local(int function, sgx_status_t(*func)(sgx_enclave_id_t , int* ,unsigned char *, int, unsigned char *, int));
+        
+    private:
+        void isSgxable(){
+            sgx_is_capable(&sgxable);    
+        }
+        
+        bool RA();     
+        void cleanup();  
+        uint8_t* msg1_samples[2];
+        uint8_t* msg2_samples[2];
+        uint8_t* msg3_samples[2];
+        uint8_t* attestation_msg_samples[2];
+        uint8_t* plaintext = NULL;
+        uint32_t plaintext_len;
+        uint8_t * server = NULL;
+        uint8_t *port = NULL;
+        int ret = 0;
+        ra_samp_request_header_t *p_msg0_full = NULL;
+        ra_samp_response_header_t *p_msg0_resp_full = NULL;
+        ra_samp_request_header_t *p_msg1_full = NULL;
+        ra_samp_response_header_t *p_msg2_full = NULL;
+        sgx_ra_msg3_t *p_msg3 = NULL;
+        ra_samp_response_header_t* p_att_result_msg_full = NULL;
+        sgx_enclave_id_t enclave_id = 0;
+        int enclave_lost_retry_time = 1;
+        int busy_retry_time = 4;
+        sgx_ra_context_t context = INT_MAX;
+        sgx_status_t status = SGX_SUCCESS;
+        ra_samp_request_header_t* p_msg3_full = NULL;
+
+        int32_t verify_index = -1;
+        int32_t verification_samples = 0;
+
+        
+        
+
+        FILE* OUTPUT = stdout;
+
+        int sgxable = 0;
+
+        normal_message_request_header_t* msg5 = NULL;
+        normal_message_response_header_t* msg6 = NULL;
+        
+};
+
+sgx::sgx(uint8_t* plaintext, uint8_t* server, uint8_t* port, 
+        uint8_t* msg1_sample1,uint8_t* msg1_sample2,
+        uint8_t* msg2_sample1,uint8_t* msg2_sample2,
+        uint8_t* msg3_sample1,uint8_t* msg3_sample2,
+        uint8_t* attestation_msg_sample1, uint8_t* attestation_msg_sample2,int verify_index, int argc)
 {
-    int ret = 0;
-    ra_samp_request_header_t *p_msg0_full = NULL;
-    ra_samp_response_header_t *p_msg0_resp_full = NULL;
-    ra_samp_request_header_t *p_msg1_full = NULL;
-    ra_samp_response_header_t *p_msg2_full = NULL;
-    sgx_ra_msg3_t *p_msg3 = NULL;
-    ra_samp_response_header_t* p_att_result_msg_full = NULL;
-    sgx_enclave_id_t enclave_id = 0;
-    int enclave_lost_retry_time = 1;
-    int busy_retry_time = 4;
-    sgx_ra_context_t context = INT_MAX;
-    sgx_status_t status = SGX_SUCCESS;
-    ra_samp_request_header_t* p_msg3_full = NULL;
-
-    int32_t verify_index = -1;
-    int32_t verification_samples = sizeof(msg1_samples)/sizeof(msg1_samples[0]);
-
-    FILE* OUTPUT = stdout;
-
-#define VERIFICATION_INDEX_IS_VALID() (verify_index > 0 && \
+    
+    this->server = server;
+    this->port = port;
+    this->plaintext = plaintext; 
+    this->plaintext_len = (uint32_t)strlen((char*)plaintext);   
+    msg1_samples[0] = msg1_sample1;
+    msg1_samples[1] = msg1_sample2;
+    msg2_samples[0] = msg2_sample1;
+    msg2_samples[1] = msg2_sample2;
+    msg3_samples[0] = msg3_sample1;
+    msg3_samples[1] = msg3_sample2;
+    attestation_msg_samples[0] = attestation_msg_sample1;
+    attestation_msg_samples[1] = attestation_msg_sample2;
+    this->verify_index = verify_index;
+    verification_samples = sizeof(msg1_samples)/sizeof(msg1_samples[0]);
+    #define VERIFICATION_INDEX_IS_VALID() (verify_index > 0 && \
                                        verify_index <= verification_samples)
-#define GET_VERIFICATION_ARRAY_INDEX() (verify_index-1)
-
-    if(argc > 1)
-    {
-
-        verify_index = atoi(argv[1]);
-
+    #define GET_VERIFICATION_ARRAY_INDEX() (verify_index-1) 
+    if(argc > 1){
         if( VERIFICATION_INDEX_IS_VALID())
         {
-            fprintf(OUTPUT, "\nVerifying precomputed attestation messages "
-                            "using precomputed values# %d\n", verify_index);
+                fprintf(OUTPUT, "\nVerifying precomputed attestation messages "
+                                "using precomputed values# %d\n", verify_index);
         }
         else
         {
@@ -227,11 +258,25 @@ int main(int argc, char* argv[])
             fprintf(OUTPUT, "\nUsing a verification index uses precomputed "
                     "messages to assist debugging the remote attestation "
                     "service provider.\n");
-            return -1;
+            exit(1);
         }
     }
+}
 
-    // Preparation for remote attestation by configuring extended epid group id.
+
+
+
+
+
+
+
+
+    // Remote attestation will be initiated the ISV server challenges the ISV
+    // app or if the ISV app detects it doesn't have the credentials
+    // (shared secret) from a previous attestation required for secure
+    // communication with the server.
+bool sgx::RA()    
+{        // Preparation for remote attestation by configuring extended epid group id.
     {
         uint32_t extended_epid_group_id = 0;
         ret = sgx_get_extended_epid_group_id(&extended_epid_group_id);
@@ -240,7 +285,7 @@ int main(int argc, char* argv[])
             ret = -1;
             fprintf(OUTPUT, "\nError, call sgx_get_extended_epid_group_id fail [%s].",
                 __FUNCTION__);
-            return ret;
+            exit(1);
         }
         fprintf(OUTPUT, "\nCall sgx_get_extended_epid_group_id success.");
 
@@ -250,7 +295,7 @@ int main(int argc, char* argv[])
         if (NULL == p_msg0_full)
         {
             ret = -1;
-            goto CLEANUP;
+            cleanup();
         }
         p_msg0_full->type = TYPE_RA_MSG0;
         p_msg0_full->size = sizeof(uint32_t);
@@ -274,15 +319,10 @@ int main(int argc, char* argv[])
         {
             fprintf(OUTPUT, "\nError, ra_network_send_receive for msg0 failed "
                 "[%s].", __FUNCTION__);
-            goto CLEANUP;
+            cleanup();
         }
         fprintf(OUTPUT, "\nSent MSG0 to remote attestation service.\n");
     }
-    // Remote attestation will be initiated the ISV server challenges the ISV
-    // app or if the ISV app detects it doesn't have the credentials
-    // (shared secret) from a previous attestation required for secure
-    // communication with the server.
-    {
         // ISV application creates the ISV enclave.
         int launch_token_update = 0;
         sgx_launch_token_t launch_token = {0};
@@ -299,7 +339,7 @@ int main(int argc, char* argv[])
                 ret = -1;
                 fprintf(OUTPUT, "\nError, call sgx_create_enclave fail [%s].",
                         __FUNCTION__);
-                goto CLEANUP;
+                cleanup();
             }
             fprintf(OUTPUT, "\nCall sgx_create_enclave success.");
 
@@ -315,7 +355,7 @@ int main(int argc, char* argv[])
             ret = -1;
             fprintf(OUTPUT, "\nError, call enclave_init_ra fail [%s].",
                     __FUNCTION__);
-            goto CLEANUP;
+            cleanup();
         }
         fprintf(OUTPUT, "\nCall enclave_init_ra success.");
 
@@ -326,7 +366,7 @@ int main(int argc, char* argv[])
         if(NULL == p_msg1_full)
         {
             ret = -1;
-            goto CLEANUP;
+            cleanup();
         }
         p_msg1_full->type = TYPE_RA_MSG1;
         p_msg1_full->size = sizeof(sgx_ra_msg1_t);
@@ -342,7 +382,7 @@ int main(int argc, char* argv[])
             ret = -1;
             fprintf(OUTPUT, "\nError, call sgx_ra_get_msg1 fail [%s].",
                     __FUNCTION__);
-            goto CLEANUP;
+            cleanup();
         }
         else
         {
@@ -401,7 +441,7 @@ int main(int argc, char* argv[])
                 if(NULL == p_msg2_full)
                 {
                     ret = -1;
-                    goto CLEANUP;
+                    cleanup();
                 }
                 memcpy_s(p_msg2_full, msg2_full_size, precomputed_msg2,
                          msg2_full_size);
@@ -412,7 +452,7 @@ int main(int argc, char* argv[])
             }
             else
             {
-                goto CLEANUP;
+                cleanup();
             }
         }
         else
@@ -432,7 +472,7 @@ int main(int argc, char* argv[])
                 }
                 else
                 {
-                    goto CLEANUP;
+                    cleanup();
                 }
             }
 
@@ -491,7 +531,7 @@ int main(int argc, char* argv[])
             if(NULL == p_msg3)
             {
                 ret = -1;
-                goto CLEANUP;
+                cleanup();
             }
             memcpy_s(p_msg3, msg3_size,
                      msg3_samples[GET_VERIFICATION_ARRAY_INDEX()], msg3_size);
@@ -519,14 +559,14 @@ int main(int argc, char* argv[])
                 fprintf(OUTPUT, "\nError, call sgx_ra_proc_msg2 fail. "
                                 "p_msg3 = 0x%p [%s].", p_msg3, __FUNCTION__);
                 ret = -1;
-                goto CLEANUP;
+                cleanup();
             }
             if(SGX_SUCCESS != (sgx_status_t)ret)
             {
                 fprintf(OUTPUT, "\nError, call sgx_ra_proc_msg2 fail. "
                                 "ret = 0x%08x [%s].", ret, __FUNCTION__);
                 ret = -1;
-                goto CLEANUP;
+                cleanup();
             }
             else
             {
@@ -542,7 +582,7 @@ int main(int argc, char* argv[])
         if(NULL == p_msg3_full)
         {
             ret = -1;
-            goto CLEANUP;
+            cleanup();
         }
         p_msg3_full->type = TYPE_RA_MSG3;
         p_msg3_full->size = msg3_size;
@@ -551,7 +591,7 @@ int main(int argc, char* argv[])
             fprintf(OUTPUT,"\nError: INTERNAL ERROR - memcpy failed in [%s].",
                     __FUNCTION__);
             ret = -1;
-            goto CLEANUP;
+            cleanup();
         }
 
         // The ISV application sends msg3 to the SP to get the attestation
@@ -569,7 +609,7 @@ int main(int argc, char* argv[])
         {
             ret = -1;
             fprintf(OUTPUT, "\nError, sending msg3 failed [%s].", __FUNCTION__);
-            goto CLEANUP;
+            cleanup();
         }
 
 
@@ -583,7 +623,7 @@ int main(int argc, char* argv[])
                             "received was NOT of type att_msg_result. Type = "
                             "%d. [%s].", p_att_result_msg_full->type,
                              __FUNCTION__);
-            goto CLEANUP;
+            cleanup();
         }
         else
         {
@@ -618,7 +658,7 @@ int main(int argc, char* argv[])
                             "messages, the attestation result message will "
                             "not pass further verification tests, so we will "
                             "skip them.\n");
-            goto CLEANUP;
+            cleanup();
         }
 
         // Check the MAC using MK on the attestation result message.
@@ -639,7 +679,7 @@ int main(int argc, char* argv[])
             fprintf(OUTPUT, "\nError: INTEGRITY FAILED - attestation result "
                             "message MK based cmac failed in [%s].",
                             __FUNCTION__);
-            goto CLEANUP;
+            cleanup();
         }
 
         bool attestation_passed = true;
@@ -654,8 +694,7 @@ int main(int argc, char* argv[])
                             "failed in [%s].", __FUNCTION__);
             attestation_passed = false;
         }
-
-        // The attestation result message should contain a field for the Platform
+                // The attestation result message should contain a field for the Platform
         // Info Blob (PIB).  The PIB is returned by attestation server in the attestation report.
         // It is not returned in all cases, but when it is, the ISV app
         // should pass it to the blob analysis API called sgx_report_attestation_status()
@@ -671,6 +710,7 @@ int main(int argc, char* argv[])
 
         // Get the shared secret sent by the server using SK (if attestation
         // passed)
+
         if(attestation_passed)
         {
             ret = put_secret_data(enclave_id,
@@ -685,28 +725,23 @@ int main(int argc, char* argv[])
                                 "using SK based AESGCM failed in [%s]. ret = "
                                 "0x%0x. status = 0x%0x", __FUNCTION__, ret,
                                  status);
-                goto CLEANUP;
+                cleanup();
             }
         }
         fprintf(OUTPUT, "\nSecret successfully received from server.");
         fprintf(OUTPUT, "\nRemote attestation success!");
-        
-        //exchange normal message after attestation to get 
-        int sgxable = 0;
-        sgx_is_capable(&sgxable);
-        printf("sgx is capable = %d\n",sgxable);
-        sgxable = 0;
-        normal_message_request_header_t* msg5 = NULL;
-        normal_message_response_header_t* msg6 = NULL;
-        if(sgxable) {
-            
+        return attestation_passed;
+}
+void sgx::work_local(int function, sgx_status_t(*func)(sgx_enclave_id_t , int* ,unsigned char *, int, unsigned char *, int)) {
+    isSgxable();
+    if(sgxable && RA()) {
             uint8_t* temp = (uint8_t*)malloc(NORMAL_MESSAGE_REQUEST_SIZE);           
-            ret = require_secret(enclave_id, &status, context, temp, NORMAL_MESSAGE_REQUEST_SIZE, 1);
+            ret = require_secret(enclave_id, &status, context, temp, NORMAL_MESSAGE_REQUEST_SIZE, function);
             if((ret != SGX_SUCCESS) || (SGX_SUCCESS != status)) {
                 fprintf(OUTPUT, "\nError, processing request secret "
                         " failed in [%s]. ret = "
                         "0x%0x. status = 0x%0x", __FUNCTION__, ret, status);
-                goto CLEANUP;               
+                cleanup();               
             }
             msg5 = (normal_message_request_header_t*)temp;
             fprintf(OUTPUT, "out of sgx type is %d\n", ((user_aes_gcm_data_t *)msg5->body)->payload_size);           
@@ -720,7 +755,7 @@ int main(int argc, char* argv[])
                 fprintf(OUTPUT, "\nError, processing received secret "
                         " failed in [%s]. ret = "
                         "0x%0x. status = 0x%0x", __FUNCTION__, ret, status);
-                goto CLEANUP;
+                cleanup();
             }
             //to encrypt a plaintext
             
@@ -728,16 +763,15 @@ int main(int argc, char* argv[])
             int ciphersize = ((plaintext_len / 16) + 1) * 16;
             uint8_t* ciphertext = (uint8_t*)malloc(ciphersize);
             int cipherLen = 0;
-            ret = encrypt_aes(enclave_id, &cipherLen,plaintext, plaintext_len, ciphertext, ciphersize);
+            ret = func(enclave_id, &cipherLen,plaintext, plaintext_len, ciphertext, ciphersize);
             
             if(ret != 0) {
                 fprintf(OUTPUT, "\nError, generate ciphertext"
                         " failed in [%s]. ret = "
                         "0x%0x.", __FUNCTION__, ret);
-                goto CLEANUP;
+                cleanup();
             }
-            printf("\ncipherlen is %d ciphertext is %s\n", cipherLen, ciphertext);
-
+            printf("\ncipherlen is %d ciphertext is %s\n", cipherLen, ciphertext);  
             //to decrypt a ciphertext
             plaintext = (uint8_t*)malloc(cipherLen);
             memset(plaintext,0,cipherLen);
@@ -747,31 +781,34 @@ int main(int argc, char* argv[])
                 fprintf(OUTPUT, "\nError, generate plaintext"
                         " failed in [%s]. ret = "
                         "0x%0x.", __FUNCTION__, ret);
-                goto CLEANUP;
+                cleanup();
             }
             plaintext[plainLen] = '\0';
             printf("\nplianlen is %d plaintext is %s\n", plainLen, plaintext);
-            //BIO_dump_fp (stdout, (const char *)palintext, plainLen - 1);                       
-        } else {
+            cleanup();
+    }else if (!sgxable){
+        printf("sgx is not enable on this pc, please choose remotework\n");
+        return;
+    }else {
+        printf("romote attestation failed\n");
+        return;
+    }
+}
+void sgx::work_remote(int function){
             uint8_t* temp = (uint8_t*)malloc(sizeof(normal_message_request_header_t) + sizeof(user_process_data_t) + plaintext_len);
             msg5 = (normal_message_request_header_t*)temp;
             msg5->size = sizeof(normal_message_request_header_t);
-            msg5->type = TYPE_PROCESS;
+            msg5->type = function;//TYPE_PROCESS;
             user_process_data_t* upd = (user_process_data_t*)msg5->body;
             memcpy(upd->payload,plaintext,plaintext_len);
             upd->payload_size = plaintext_len;            
             normal_message_send_receive("server",msg5, &msg6);
             printf("\n%s\n",msg6->body);
-            
-        }
-    }
+}
 
-    
 
-CLEANUP:
-    // Clean-up
-    // Need to close the RA key state.
-    if(INT_MAX != context)
+void sgx::cleanup(){
+        if(INT_MAX != context)
     {
         int ret_save = ret;
         ret = enclave_ra_close(enclave_id, &status, context);
@@ -804,6 +841,28 @@ CLEANUP:
     SAFE_FREE(p_msg0_full);
     printf("\nEnter a character before exit ...\n");
     getchar();
-    return ret;
+}
+    // Clean-up
+    // Need to close the RA key state.
+
+// This sample code doesn't have any recovery/retry mechanisms for the remote
+// attestation. Since the enclave can be lost due S3 transitions, apps
+// susceptible to S3 transitions should have logic to restart attestation in
+// these scenarios.
+
+int main(int argc, char* argv[])
+{
+    int verify_index = -1;
+    if(argc > 1)
+        verify_index = atoi(argv[1]);
+    
+    uint8_t* plaintext = (uint8_t*)"this is my secret";
+    uint8_t* server = (uint8_t*)"127.0.0.1";
+    uint8_t* port = (uint8_t*)"8080";
+    sgx mytest(plaintext,server,port,msg1_sample1,msg1_sample2,msg2_sample1,
+                 msg2_sample2,msg3_sample1,msg3_sample2,
+                 attestation_msg_sample1,attestation_msg_sample2,verify_index, argc);
+    mytest.work_local(TYPE_SECRET_LOCAL,encrypt_aes);
+    mytest.work_remote(TYPE_PROCESS);
 }
 
